@@ -1,5 +1,0 @@
-{
-  "functions": {
-    "api/saweria.py": { "maxDuration": 30 }
-  }
-}
