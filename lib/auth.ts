@@ -1,11 +1,13 @@
+import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { readSession } from '@/lib/security/session';
 
 export interface Profile {
   id: string;
   username: string;
-  email: string | null;
+  email: string | null; // dipertahankan agar komponen lama tetap cocok; selalu null
   credits: number;
   role: 'user' | 'admin';
   is_banned: boolean;
@@ -14,19 +16,21 @@ export interface Profile {
 
 // cache(): satu request = satu kali query, walau dipanggil berkali-kali.
 export const getUser = cache(async (): Promise<Profile | null> => {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const accountId = await readSession();
+  if (!accountId) return null;
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  return (profile as Profile) ?? null;
+  const { data } = await supabaseAdmin
+    .from('accounts')
+    .select('id, username, credits, role, is_banned, created_at')
+    .eq('id', accountId)
+    .maybeSingle();
+
+  return data ? ({ ...data, email: null } as Profile) : null;
 });
 
 export async function requireUser() {
   const user = await getUser();
-  if (!user) redirect('/');
+  if (!user) redirect('/?auth=login');
   return user;
 }
 

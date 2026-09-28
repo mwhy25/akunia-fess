@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export default async function Success({ searchParams }: { searchParams: { orderId?: string } }) {
   const user = await requireUser();
-  const supabase = createClient();
 
   let credits: number | null = null;
   if (searchParams.orderId) {
-    const { data } = await supabase.from('orders').select('credits, status').eq('id', searchParams.orderId).maybeSingle();
+    const { data } = await supabaseAdmin.from('orders').select('credits, status').eq('id', searchParams.orderId).eq('user_id', user.id).maybeSingle();
     if (data?.status === 'paid') credits = data.credits;
   }
 

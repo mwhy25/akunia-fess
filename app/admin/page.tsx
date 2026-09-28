@@ -12,7 +12,7 @@ export default async function AdminHome() {
   const [queued, pending, users, published] = await Promise.all([
     count('posts', 'status', 'queued'),
     count('orders', 'status', 'pending'),
-    count('profiles'),
+    count('accounts'),
     count('posts', 'status', 'published'),
   ]);
 

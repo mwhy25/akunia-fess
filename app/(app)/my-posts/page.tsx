@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { requireUser } from '@/lib/auth';
 import { StatusBadge } from '@/components/post/StatusBadge';
 import { timeAgo } from '@/lib/utils';
 
 export default async function MyPosts() {
-  await requireUser();
-  const supabase = createClient();
-  const { data: posts } = await supabase
+  const user = await requireUser();
+  const { data: posts } = await supabaseAdmin
     .from('posts')
     .select('id, content, image_urls, status, reject_reason, tweet_url, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(50);
 

@@ -1,26 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
 
 const PROTECTED = ['/dashboard', '/create', '/my-posts', '/credits', '/profile', '/admin'];
-
 const matches = (path: string, base: string) => path === base || path.startsWith(base + '/');
 
-export async function middleware(req: NextRequest) {
-  const { res, user } = await updateSession(req);
+// Hanya gerbang cepat: cek cookie ada. Validasi sesi yang sebenarnya dilakukan
+// di requireUser()/requireAdmin() pada layout, karena middleware (edge) tidak boleh query DB.
+export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
+  const hasCookie = !!req.cookies.get('mf_session')?.value;
 
-  // Belum login tapi buka halaman terlindungi → balik ke landing (auth modal).
-  if (!user && PROTECTED.some((p) => matches(path, p))) {
+  if (!hasCookie && PROTECTED.some((p) => matches(path, p))) {
     const url = new URL('/', req.url);
     url.searchParams.set('auth', 'login');
     url.searchParams.set('next', path);
     return NextResponse.redirect(url);
   }
-
-  // Cek role admin dilakukan di requireAdmin() pada layout admin, bukan di sini.
-  return res;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/payment/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };

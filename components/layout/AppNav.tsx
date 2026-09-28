@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { rupiah } from '@/lib/utils';
 
 const LINKS = [
@@ -18,7 +17,7 @@ export function AppNav({ username, credits, isAdmin }: { username: string; credi
   const active = (h: string) => path === h || path.startsWith(h + '/');
 
   async function logout() {
-    await createClient().auth.signOut();
+    await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
     router.refresh();
   }

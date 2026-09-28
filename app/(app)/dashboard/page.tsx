@@ -1,20 +1,20 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { StatusBadge } from '@/components/post/StatusBadge';
 import { timeAgo } from '@/lib/utils';
 
 export default async function Dashboard() {
   const user = await requireUser();
-  const supabase = createClient();
 
-  const { data: posts } = await supabase
+  const { data: posts } = await supabaseAdmin
     .from('posts')
     .select('id, content, status, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(3);
 
-  const { count: total } = await supabase.from('posts').select('id', { count: 'exact', head: true });
+  const { count: total } = await supabaseAdmin.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
   const empty = user.credits === 0;
 
   return (

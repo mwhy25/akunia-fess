@@ -9,7 +9,7 @@ export default async function AdminOrders() {
   await supabaseAdmin.rpc('expire_orders');
   const { data: orders } = await supabaseAdmin
     .from('orders')
-    .select('id, status, amount, credits, provider, created_at, profiles(username, email)')
+    .select('id, status, amount, credits, provider, created_at, accounts(username)')
     .order('created_at', { ascending: false })
     .limit(60);
 
@@ -23,7 +23,7 @@ export default async function AdminOrders() {
               <StatusBadge status={o.status} />
               <span className="text-xs text-mute">{timeAgo(o.created_at)} · {o.provider}</span>
             </div>
-            <p className="font-bold">{o.profiles?.username} <span className="font-normal text-mute">({o.profiles?.email})</span></p>
+            <p className="font-bold">{o.accounts?.username}</p>
             <p>{rupiah(o.amount)} → +{o.credits} kredit</p>
             <p className="mb-3 break-all text-xs text-mute">{o.id}</p>
             {o.status === 'pending' && <VerifyOrderButton orderId={o.id} />}

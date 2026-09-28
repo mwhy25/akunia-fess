@@ -1,5 +1,5 @@
 import { requireUser } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { PackagePicker } from '@/components/payment/PackagePicker';
 import { StatusBadge } from '@/components/post/StatusBadge';
 import { rupiah, timeAgo } from '@/lib/utils';
@@ -7,10 +7,10 @@ import Link from 'next/link';
 
 export default async function CreditsPage() {
   const user = await requireUser();
-  const supabase = createClient();
-  const { data: orders } = await supabase
+  const { data: orders } = await supabaseAdmin
     .from('orders')
     .select('id, credits, amount, status, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(10);
 
