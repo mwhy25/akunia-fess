@@ -1,6 +1,7 @@
-import type { CookieOptions } from '@supabase/ssr';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+
+type CookieToSet = { name: string; value: string; options?: any };
 
 // Refresh sesi + kembalikan user. Dipanggil dari middleware.ts.
 export async function updateSession(req: NextRequest) {
@@ -12,7 +13,7 @@ export async function updateSession(req: NextRequest) {
     {
       cookies: {
         getAll: () => req.cookies.getAll(),
-        setAll: (list: { name: string; value: string; options: CookieOptions }[]) => {
+        setAll: (list: CookieToSet[]) => {
           list.forEach(({ name, value }) => req.cookies.set(name, value));
           res = NextResponse.next({ request: req });
           list.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
