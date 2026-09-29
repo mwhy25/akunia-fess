@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getUser } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { checkSaweriaPaid } from '@/lib/payment/saweria';
+import { checkSaweriaPaidDebug } from '@/lib/payment/saweria';
 
 const schema = z.object({ orderId: z.string().uuid() });
 
 // Dipanggil admin untuk menanyakan LANGSUNG ke Saweria (bukan baca status di Supabase),
 // lalu update database kalau ternyata sudah SUCCESS di sana.
+// Mengembalikan detail mentah (debug) supaya kalau gagal, sebabnya kelihatan
+// langsung di browser, bukan cuma tersembunyi di log server.
 export async function POST(req: Request) {
   const user = await getUser();
   if (!user || user.role !== 'admin') return NextResponse.json({ error: 'Dilarang' }, { status: 403 });
@@ -26,23 +28,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Order ini bukan provider Saweria' }, { status: 400 });
   }
 
-  let paidAtSaweria: boolean;
-  try {
-    paidAtSaweria = await checkSaweriaPaid(order.id);
-  } catch (e: any) {
-    return NextResponse.json({ error: `Gagal menghubungi Saweria: ${e.message}` }, { status: 502 });
+  const debug = await checkSaweriaPaidDebug(order.id);
+
+  if (!debug.ok) {
+    // Gagal menghubungi Saweria (token invalid, network, dll) — tampilkan apa adanya.
+    return NextResponse.json({ ok: false, paid: false, message: debug.error, debug }, { status: 502 });
   }
 
-  if (!paidAtSaweria) {
-    return NextResponse.json({ ok: true, paid: false, message: 'Belum ditemukan transaksi SUCCESS untuk order ini di Saweria.' });
+  if (!debug.paid) {
+    return NextResponse.json({
+      ok: true,
+      paid: false,
+      message: `Belum ditemukan transaksi SUCCESS yang cocok. Dicari: "${debug.orderIdDicari}". Ada ${debug.jumlahTransaksi} transaksi terbaru, lihat debug untuk detail.`,
+      debug,
+    });
   }
 
   // Sudah SUCCESS di Saweria. Kalau di DB masih pending/expired, luluskan sekarang.
   if (order.status !== 'paid') {
     await supabaseAdmin.from('orders').update({ status: 'pending' }).eq('id', order.id).neq('status', 'paid');
     const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
-    if (error) return NextResponse.json({ error: `Ditemukan SUCCESS tapi gagal fulfill: ${error.message}` }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ ok: false, paid: true, message: `Ditemukan SUCCESS tapi gagal fulfill: ${error.message}`, debug }, { status: 500 });
+    }
   }
 
-  return NextResponse.json({ ok: true, paid: true, message: 'Terkonfirmasi SUCCESS di Saweria. Kredit sudah masuk.' });
+  return NextResponse.json({ ok: true, paid: true, message: 'Terkonfirmasi SUCCESS di Saweria. Kredit sudah masuk.', debug });
 }

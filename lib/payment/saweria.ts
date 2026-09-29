@@ -27,8 +27,6 @@ export const saweriaProvider: PaymentProvider = {
       body: JSON.stringify({
         agree: true,
         notUnderage: true,
-        // Pesan HANYA berisi order id (UUID penuh), dipakai untuk mencocokkan
-        // transaksi Saweria dengan order kita saat admin/otomatis mengecek status.
         message: orderId,
         amount,
         payment_type: 'qris',
@@ -54,44 +52,92 @@ export const saweriaProvider: PaymentProvider = {
 
     return {
       providerRef: String(d.id),
-      qrString: d.qr_string, // digambar di browser oleh CheckoutView
+      qrString: d.qr_string,
       totalPaid: amount,
       expiresAt: new Date(Date.now() + expiresInMinutes * 60_000).toISOString(),
     };
   },
 
-  // Belum ada webhook asli dari Saweria. Verifikasi dilakukan admin di /admin/orders,
-  // baik manual maupun lewat tombol "Cek ke Saweria" (checkSaweriaPaid di bawah).
   async verifyWebhook() {
     return { valid: false };
   },
 };
 
-// SEMENTARA untuk uji coba: token manual dari env (SAWERIA_TOKEN), berlaku ~3 hari
-// lalu harus diganti manual (login ulang di saweria.co, ambil token baru, update env).
-// orderId di sini HARUS UUID order PENUH (sama persis dengan yang ditulis sebagai
-// message saat createPayment), bukan potongan/slice.
-export async function checkSaweriaPaid(orderId: string): Promise<boolean> {
+// Hasil detail untuk keperluan debug — dipakai oleh endpoint admin supaya
+// error/isi mentah kelihatan di browser, bukan cuma tersembunyi di log server.
+export interface SaweriaCheckDebug {
+  ok: boolean;
+  paid: boolean;
+  httpStatus?: number;
+  tokenSet: boolean;
+  orderIdDicari: string;
+  jumlahTransaksi?: number;
+  transaksiTerbaru?: { status: string; amount: number; message: string; created_at: string }[];
+  error?: string;
+}
+
+export async function checkSaweriaPaidDebug(orderId: string): Promise<SaweriaCheckDebug> {
   const token = process.env.SAWERIA_TOKEN;
-  if (!token) return false;
+  const tokenSet = !!token;
 
-  const res = await fetch('https://backend.saweria.co/transactions?page=1&page_size=20', {
-    headers: {
-      Authorization: token,
-      Referer: 'https://saweria.co/',
-      Origin: 'https://saweria.co',
-    },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    console.error('cek transaksi Saweria gagal:', res.status);
-    return false;
+  if (!token) {
+    return { ok: false, paid: false, tokenSet: false, orderIdDicari: orderId, error: 'SAWERIA_TOKEN belum di-set di environment variables.' };
   }
 
-  const body = await res.json();
-  const found = (body?.data?.transactions ?? []).find(
-    (t: any) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.trim() === orderId
+  let res: Response;
+  try {
+    res = await fetch('https://backend.saweria.co/transactions?page=1&page_size=20', {
+      headers: {
+        Authorization: token,
+        Referer: 'https://saweria.co/',
+        Origin: 'https://saweria.co',
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (e: any) {
+    return { ok: false, paid: false, tokenSet, orderIdDicari: orderId, error: `fetch gagal: ${e.message}` };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, paid: false, httpStatus: 401, tokenSet, orderIdDicari: orderId, error: 'Token ditolak Saweria (401) — kemungkinan sudah kadaluarsa, login ulang di saweria.co.' };
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    return { ok: false, paid: false, httpStatus: res.status, tokenSet, orderIdDicari: orderId, error: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+  }
+
+  let body: any;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, paid: false, httpStatus: res.status, tokenSet, orderIdDicari: orderId, error: 'Respons bukan JSON yang valid.' };
+  }
+
+  const transactions: any[] = body?.data?.transactions ?? [];
+  const found = transactions.find(
+    (t) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.trim() === orderId.trim()
   );
-  return !!found;
+
+  return {
+    ok: true,
+    paid: !!found,
+    httpStatus: res.status,
+    tokenSet,
+    orderIdDicari: orderId,
+    jumlahTransaksi: transactions.length,
+    // Kirim 5 transaksi teratas biar kelihatan di browser, buat dibandingkan manual.
+    transaksiTerbaru: transactions.slice(0, 5).map((t) => ({
+      status: t.status,
+      amount: t.amount,
+      message: t.message,
+      created_at: t.created_at,
+    })),
+  };
+}
+
+// Dipakai oleh alur otomatis (polling checkout) — versi ringkas, tanpa detail.
+export async function checkSaweriaPaid(orderId: string): Promise<boolean> {
+  const result = await checkSaweriaPaidDebug(orderId);
+  return result.paid;
 }

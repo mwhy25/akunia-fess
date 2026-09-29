@@ -27,20 +27,19 @@ export function VerifyOrderButton({ orderId }: { orderId: string }) {
 export function CheckSaweriaButton({ orderId }: { orderId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState<any>(null);
 
   async function check() {
     setLoading(true);
-    setResult('');
+    setResult(null);
     const res = await fetch('/api/admin/check-saweria', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId }),
     });
-    const j = await res.json();
+    const j = await res.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) return setResult(`Error: ${j.error || 'Gagal'}`);
-    setResult(j.message);
+    setResult({ httpOk: res.ok, ...j });
     if (j.paid) router.refresh();
   }
 
@@ -49,7 +48,36 @@ export function CheckSaweriaButton({ orderId }: { orderId: string }) {
       <button onClick={check} disabled={loading} className="btn btn-sm btn-ghost">
         {loading ? 'Mengecek ke Saweria...' : 'Cek ke Saweria'}
       </button>
-      {result && <p className={result.startsWith('Error') ? 'err' : 'ok'}>{result}</p>}
+
+      {result && (
+        <div className={`mt-2 space-y-2 border-l-4 p-3 text-sm ${result.paid ? 'border-acid bg-acid/10' : 'border-red bg-red-deep/40'}`}>
+          <p className="font-bold">{result.message || result.error || 'Tidak ada respons'}</p>
+
+          {result.debug && (
+            <details className="text-xs text-mute">
+              <summary className="cursor-pointer font-bold text-ink">Lihat detail mentah (debug)</summary>
+              <div className="mt-2 space-y-1">
+                <p>token di-set: {String(result.debug.tokenSet)}</p>
+                <p>HTTP status Saweria: {String(result.debug.httpStatus)}</p>
+                <p>dicari: <span className="break-all font-mono">{result.debug.orderIdDicari}</span></p>
+                <p>jumlah transaksi terbaru: {String(result.debug.jumlahTransaksi)}</p>
+                {result.debug.transaksiTerbaru?.length > 0 && (
+                  <div className="mt-1 space-y-1">
+                    <p className="font-bold text-ink">5 transaksi terbaru dari Saweria:</p>
+                    {result.debug.transaksiTerbaru.map((t: any, i: number) => (
+                      <p key={i} className="break-all border-t border-line pt-1 font-mono">
+                        [{t.status}] Rp{t.amount} · {t.created_at}<br />
+                        message: "{t.message}"
+                        {t.message?.trim() === result.debug.orderIdDicari?.trim() && <span className="text-acid"> ← COCOK</span>}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 }
