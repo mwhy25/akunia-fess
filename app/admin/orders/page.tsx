@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { StatusBadge } from '@/components/post/StatusBadge';
-import { VerifyOrderButton } from '@/components/layout/AdminActions';
+import { VerifyOrderButton, CheckSaweriaButton } from '@/components/layout/AdminActions';
 import { rupiah, timeAgo } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +26,7 @@ export default async function AdminOrders() {
             <p className="font-bold">{o.accounts?.username}</p>
             <p>{rupiah(o.amount)} → +{o.credits} kredit</p>
             <p className="mb-3 break-all text-xs text-mute">{o.id}</p>
+            {o.provider === 'saweria' && <CheckSaweriaButton orderId={o.id} />}
             {o.status === 'pending' && <VerifyOrderButton orderId={o.id} />}
           </li>
         ))}

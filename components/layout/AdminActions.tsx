@@ -24,6 +24,37 @@ export function VerifyOrderButton({ orderId }: { orderId: string }) {
   );
 }
 
+export function CheckSaweriaButton({ orderId }: { orderId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState('');
+
+  async function check() {
+    setLoading(true);
+    setResult('');
+    const res = await fetch('/api/admin/check-saweria', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    });
+    const j = await res.json();
+    setLoading(false);
+    if (!res.ok) return setResult(`Error: ${j.error || 'Gagal'}`);
+    setResult(j.message);
+    if (j.paid) router.refresh();
+  }
+
+  return (
+    <div>
+      <button onClick={check} disabled={loading} className="btn btn-sm btn-ghost">
+        {loading ? 'Mengecek ke Saweria...' : 'Cek ke Saweria'}
+      </button>
+      {result && <p className={result.startsWith('Error') ? 'err' : 'ok'}>{result}</p>}
+    </div>
+  );
+}
+
+
 export function ModeratePostButtons({ postId }: { postId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
