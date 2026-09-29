@@ -16,9 +16,11 @@ export interface CreditPackage {
 
 // Satu-satunya sumber harga. Server SELALU memakai ini, bukan angka dari client.
 export const PACKAGES: CreditPackage[] = [
-  { id: 'starter', name: 'Starter', amount: 10000, credits: 5 },
-  { id: 'reguler', name: 'Reguler', amount: 25000, credits: 15, hot: true },
-  { id: 'jumbo', name: 'Jumbo', amount: 50000, credits: 40 },
+    { id: 'tester', name: 'tester', amount: 1000, credits: 1 },
+    { id: 'Solo', name: 'Solo', amount: 5000, credits: 1 },
+  { id: 'Starter', name: 'Starter', amount: 15000, credits: 4, hot:true },
+  // { id: 'reguler', name: 'Reguler', amount: 25000, credits: 15, hot: true },
+  { id: 'Deluxe', name: 'Deluxe', amount: 100000, credits: 25 },
 ];
 
 export const getPackage = (id: string) => PACKAGES.find((p) => p.id === id);
