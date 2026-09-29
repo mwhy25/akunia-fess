@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
 
   const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('id, status, credits, amount, total_paid, qr_image, qr_string, expires_at, paid_at')
+    .select('id, status, provider, credits, amount, total_paid, qr_image, qr_string, expires_at, paid_at')
     .eq('id', params.orderId)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -24,16 +24,18 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
     order.status = 'expired';
   }
 
-    // SEMENTARA: cek manual pakai token, karena Saweria tidak punya webhook asli.
+  // SEMENTARA: cek manual pakai token, karena Saweria tidak punya webhook asli.
   if (order.status === 'pending' && order.provider === 'saweria') {
     try {
       if (await checkSaweriaPaid(order.id)) {
         const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
         if (!error) order.status = 'paid';
+        else console.error('fulfill_order gagal:', error.message);
       }
     } catch (e) {
       console.error('cek saweria gagal:', e);
     }
   }
+
   return NextResponse.json(order);
 }
