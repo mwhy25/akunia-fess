@@ -20,7 +20,7 @@ export const PACKAGES: CreditPackage[] = [
     { id: 'solo', name: 'Solo', amount: 5000, credits: 1 },
   // { id: 'starter', name: 'Starter', amount: 15000, credits: 4, hot:true },
   { id: 'reguler', name: 'Reguler', amount: 15000, credits: 4, hot: true },
-  { id: 'deluxe', name: 'Deluxe', amount: 500000, credits: 13 },
+  { id: 'deluxe', name: 'Deluxe', amount: 50000, credits: 13 },
 ];
 
 export const getPackage = (id: string) => PACKAGES.find((p) => p.id === id);

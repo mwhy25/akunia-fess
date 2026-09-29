@@ -28,8 +28,7 @@ export async function POST(req: Request) {
 
   let paidAtSaweria: boolean;
   try {
-    paidAtSaweria = await checkSaweriaPaid(order.id);
-  } catch (e: any) {
+    paidAtSaweria = await checkSaweriaPaid(order.id.slice(0, 8));  } catch (e: any) {
     return NextResponse.json({ error: `Gagal menghubungi Saweria: ${e.message}` }, { status: 502 });
   }
 

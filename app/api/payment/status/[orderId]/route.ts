@@ -27,8 +27,7 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
   // SEMENTARA: cek manual pakai token, karena Saweria tidak punya webhook asli.
   if (order.status === 'pending' && order.provider === 'saweria') {
     try {
-      if (await checkSaweriaPaid(order.id)) {
-        const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
+      if (await checkSaweriaPaid(order.id.slice(0, 8))) {        const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
         if (!error) order.status = 'paid';
         else console.error('fulfill_order gagal:', error.message);
       }

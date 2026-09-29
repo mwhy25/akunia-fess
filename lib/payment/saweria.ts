@@ -68,7 +68,7 @@ export const saweriaProvider: PaymentProvider = {
 
 // SEMENTARA untuk uji coba: token manual dari env (SAWERIA_TOKEN), berlaku ~3 hari
 // lalu harus diganti manual (login ulang di saweria.co, ambil token baru, update env).
-export async function checkSaweriaPaid(orderId: string): Promise<boolean> {
+export async function checkSaweriaPaid(orderMarker: string): Promise<boolean> {
   const token = process.env.SAWERIA_TOKEN;
   if (!token) return false;
 
@@ -87,7 +87,7 @@ export async function checkSaweriaPaid(orderId: string): Promise<boolean> {
   }
 
   const body = await res.json();
-  const marker = `ord:${orderId.slice(0, 8)}`;
+  const marker = `ord:${orderMarker}`;
   const found = (body?.data?.transactions ?? []).find(
     (t: any) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.includes(marker)
   );
