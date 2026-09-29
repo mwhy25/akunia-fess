@@ -7,7 +7,7 @@ import { readSession } from '@/lib/security/session';
 export interface Profile {
   id: string;
   username: string;
-  email: string | null; // dipertahankan agar komponen lama tetap cocok; selalu null
+  email: string | null; // data donasi Saweria, BUKAN untuk login/reset
   credits: number;
   role: 'user' | 'admin';
   is_banned: boolean;
@@ -21,11 +21,11 @@ export const getUser = cache(async (): Promise<Profile | null> => {
 
   const { data } = await supabaseAdmin
     .from('accounts')
-    .select('id, username, credits, role, is_banned, created_at')
+    .select('id, username, email, credits, role, is_banned, created_at')
     .eq('id', accountId)
     .maybeSingle();
 
-  return data ? ({ ...data, email: null } as Profile) : null;
+  return data as Profile | null;
 });
 
 export async function requireUser() {

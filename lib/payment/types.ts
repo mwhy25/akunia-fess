@@ -1,5 +1,8 @@
 export interface CreatePaymentParams {
   orderId: string;
+  userId: string;
+  username: string;
+  email: string;
   amount: number;
   description: string;
   expiresInMinutes: number;

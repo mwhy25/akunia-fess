@@ -7,6 +7,7 @@ import { allow, clientIp } from '@/lib/security/ratelimit';
 
 const schema = z.object({
   username: z.string().trim().regex(/^[a-zA-Z0-9_]{3,20}$/, 'Username 3–20 karakter: huruf, angka, atau underscore.'),
+  email: z.string().trim().toLowerCase().email('Email tidak valid.').max(254),
   password: z.string().min(8, 'Password minimal 8 karakter.').max(128, 'Password terlalu panjang.'),
 });
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
-  const { username, password } = parsed.data;
+  const { username, email, password } = parsed.data;
 
   const recoveryCode = generateRecoveryCode();
   const [password_hash, recovery_hash] = await Promise.all([
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('accounts')
-    .insert({ username, password_hash, recovery_hash })
+    .insert({ username, email, password_hash, recovery_hash })
     .select('id')
     .single();
 

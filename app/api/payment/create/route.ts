@@ -50,6 +50,9 @@ export async function POST(req: Request) {
   try {
     const result = await getProvider().createPayment({
       orderId: order.id,
+      userId: user.id,
+      username: user.username,
+      email: user.email!,
       amount: pkg.amount,
       description: `${pkg.credits} kredit menfess`,
       expiresInMinutes: ORDER_EXPIRY_MINUTES,

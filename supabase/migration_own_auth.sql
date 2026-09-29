@@ -170,3 +170,15 @@ grant execute on function cleanup_auth() to service_role;
 -- Jadikan admin (setelah daftar lewat website), ganti username:
 -- update accounts set role = 'admin' where lower(username) = lower('usernamelu');
 -- ============================================================
+
+-- ============================================================
+-- TAMBAHAN: kolom email (data donasi Saweria, BUKAN untuk login).
+-- Jalankan SEKALI, setelah blok di atas. Aman untuk database
+-- yang sudah dipakai (kolom nullable dulu), atau database baru.
+-- ============================================================
+alter table accounts add column if not exists email text;
+
+-- Validasi format dasar; boleh NULL untuk akun lama sebelum kolom ini ada.
+alter table accounts drop constraint if exists accounts_email_format;
+alter table accounts add constraint accounts_email_format
+  check (email is null or email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$');

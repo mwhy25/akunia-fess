@@ -61,6 +61,7 @@ export function AuthModal({ open, mode, onMode, onClose }: {
     setError('');
     const fd = new FormData(e.currentTarget);
     const username = String(fd.get('username') ?? '').trim();
+    const email = String(fd.get('email') ?? '').trim();
     const password = String(fd.get('password') ?? '');
 
     try {
@@ -71,7 +72,7 @@ export function AuthModal({ open, mode, onMode, onClose }: {
       } else if (mode === 'register') {
         const confirm = String(fd.get('confirm') ?? '');
         if (password !== confirm) throw new Error('Konfirmasi password tidak sama.');
-        const r = await post('/api/auth/register', { username, password });
+        const r = await post('/api/auth/register', { username, email, password });
         setRecovery(r.recoveryCode);
       } else {
         const code = String(fd.get('code') ?? '');
@@ -107,7 +108,7 @@ export function AuthModal({ open, mode, onMode, onClose }: {
         {recovery ? (
           <div className="space-y-4 p-5">
             <p className="text-[15px]">
-              Ini <b>kode pemulihan</b> lu. Satu-satunya cara masuk lagi kalau lupa password, karena kami tidak menyimpan email.
+              Ini <b>kode pemulihan</b> lu. Satu-satunya cara masuk lagi kalau lupa password &mdash; email tidak dipakai untuk reset.
               <b className="text-acid"> Kode ini hanya tampil sekali.</b>
             </p>
             <div className="select-all break-all border-[3px] border-acid bg-acid/10 p-4 text-center font-mono text-2xl font-black tracking-wider text-acid" aria-live="polite">
@@ -138,6 +139,13 @@ export function AuthModal({ open, mode, onMode, onClose }: {
                 <input ref={firstRef} id="username" name="username" className="field" placeholder="mis. bayangan_malam" autoComplete="username" autoCapitalize="none" required minLength={3} maxLength={20} />
               </div>
 
+              {mode === 'register' && (
+                <div>
+                  <label htmlFor="email" className="label">Email</label>
+                  <input id="email" name="email" type="email" inputMode="email" className="field" placeholder="nama@email.com" autoComplete="email" required maxLength={254} />
+                </div>
+              )}
+
               {mode === 'forgot' && (
                 <div>
                   <label htmlFor="code" className="label">Kode pemulihan</label>
@@ -158,7 +166,7 @@ export function AuthModal({ open, mode, onMode, onClose }: {
               )}
 
               {mode === 'register' && (
-                <p className="text-[13px] text-mute">Tanpa email. Setelah daftar, lu dapat kode pemulihan untuk jaga-jaga kalau lupa password.</p>
+                <p className="text-[13px] text-mute">Email dipakai untuk data pembayaran, bukan untuk login. Setelah daftar, lu dapat kode pemulihan untuk jaga-jaga kalau lupa password.</p>
               )}
 
               {error && <p className="err" role="alert">{error}</p>}
