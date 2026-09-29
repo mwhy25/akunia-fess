@@ -54,7 +54,6 @@ export function CheckSaweriaButton({ orderId }: { orderId: string }) {
   );
 }
 
-
 export function ModeratePostButtons({ postId }: { postId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);

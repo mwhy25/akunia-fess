@@ -18,22 +18,24 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
 
   if (!order) return NextResponse.json({ error: 'Tidak ditemukan' }, { status: 404 });
 
-  // Expire lazy.
-  if (order.status === 'pending' && order.expires_at && new Date(order.expires_at) < new Date()) {
-    await supabaseAdmin.from('orders').update({ status: 'expired' }).eq('id', order.id).eq('status', 'pending');
-    order.status = 'expired';
-  }
-
-  // SEMENTARA: cek manual pakai token, karena Saweria tidak punya webhook asli.
+  // Cek pembayaran DULUAN, sebelum menandai kedaluwarsa — kalau user sudah bayar
+  // walau QR-nya sudah lewat waktu tampil, kredit tetap harus masuk.
   if (order.status === 'pending' && order.provider === 'saweria') {
     try {
-      if (await checkSaweriaPaid(order.id.slice(0, 8))) {        const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
+      if (await checkSaweriaPaid(order.id)) {
+        const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
         if (!error) order.status = 'paid';
         else console.error('fulfill_order gagal:', error.message);
       }
     } catch (e) {
       console.error('cek saweria gagal:', e);
     }
+  }
+
+  // Baru sekarang cek kedaluwarsa, kalau ternyata belum ketahuan lunas di atas.
+  if (order.status === 'pending' && order.expires_at && new Date(order.expires_at) < new Date()) {
+    await supabaseAdmin.from('orders').update({ status: 'expired' }).eq('id', order.id).eq('status', 'pending');
+    order.status = 'expired';
   }
 
   return NextResponse.json(order);

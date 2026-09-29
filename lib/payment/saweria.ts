@@ -15,7 +15,7 @@ const HEADERS = {
 export const saweriaProvider: PaymentProvider = {
   name: 'saweria',
 
-  async createPayment({ orderId, userId, username, email, amount, expiresInMinutes }) {
+  async createPayment({ orderId, username, email, amount, expiresInMinutes }) {
     const userIdSaweria = process.env.SAWERIA_USER_ID;
     if (!userIdSaweria) throw new Error('SAWERIA_USER_ID belum di-set');
 
@@ -27,8 +27,9 @@ export const saweriaProvider: PaymentProvider = {
       body: JSON.stringify({
         agree: true,
         notUnderage: true,
-        // Memuat id user + id order agar admin gampang mencocokkan dengan mutasi Saweria.
-        message: `uid:${userId} ord:${orderId.slice(0, 8)}`,
+        // Pesan HANYA berisi order id (UUID penuh), dipakai untuk mencocokkan
+        // transaksi Saweria dengan order kita saat admin/otomatis mengecek status.
+        message: orderId,
         amount,
         payment_type: 'qris',
         vote: '',
@@ -60,7 +61,7 @@ export const saweriaProvider: PaymentProvider = {
   },
 
   // Belum ada webhook asli dari Saweria. Verifikasi dilakukan admin di /admin/orders,
-  // atau otomatis lewat checkSaweriaPaid() di bawah (uji coba, token manual).
+  // baik manual maupun lewat tombol "Cek ke Saweria" (checkSaweriaPaid di bawah).
   async verifyWebhook() {
     return { valid: false };
   },
@@ -68,7 +69,9 @@ export const saweriaProvider: PaymentProvider = {
 
 // SEMENTARA untuk uji coba: token manual dari env (SAWERIA_TOKEN), berlaku ~3 hari
 // lalu harus diganti manual (login ulang di saweria.co, ambil token baru, update env).
-export async function checkSaweriaPaid(orderMarker: string): Promise<boolean> {
+// orderId di sini HARUS UUID order PENUH (sama persis dengan yang ditulis sebagai
+// message saat createPayment), bukan potongan/slice.
+export async function checkSaweriaPaid(orderId: string): Promise<boolean> {
   const token = process.env.SAWERIA_TOKEN;
   if (!token) return false;
 
@@ -87,9 +90,8 @@ export async function checkSaweriaPaid(orderMarker: string): Promise<boolean> {
   }
 
   const body = await res.json();
-  const marker = `ord:${orderMarker}`;
   const found = (body?.data?.transactions ?? []).find(
-    (t: any) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.includes(marker)
+    (t: any) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.trim() === orderId
   );
   return !!found;
 }
