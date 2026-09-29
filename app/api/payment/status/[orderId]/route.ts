@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { checkSaweriaPaid } from '@/lib/payment/saweria';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,5 +24,16 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
     order.status = 'expired';
   }
 
+    // SEMENTARA: cek manual pakai token, karena Saweria tidak punya webhook asli.
+  if (order.status === 'pending' && order.provider === 'saweria') {
+    try {
+      if (await checkSaweriaPaid(order.id)) {
+        const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
+        if (!error) order.status = 'paid';
+      }
+    } catch (e) {
+      console.error('cek saweria gagal:', e);
+    }
+  }
   return NextResponse.json(order);
 }

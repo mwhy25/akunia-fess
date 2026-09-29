@@ -59,8 +59,37 @@ export const saweriaProvider: PaymentProvider = {
     };
   },
 
-  // Belum ada cek status otomatis. Verifikasi dilakukan admin di /admin/orders.
+  // Belum ada webhook asli dari Saweria. Verifikasi dilakukan admin di /admin/orders,
+  // atau otomatis lewat checkSaweriaPaid() di bawah (uji coba, token manual).
   async verifyWebhook() {
     return { valid: false };
   },
 };
+
+// SEMENTARA untuk uji coba: token manual dari env (SAWERIA_TOKEN), berlaku ~3 hari
+// lalu harus diganti manual (login ulang di saweria.co, ambil token baru, update env).
+export async function checkSaweriaPaid(orderId: string): Promise<boolean> {
+  const token = process.env.SAWERIA_TOKEN;
+  if (!token) return false;
+
+  const res = await fetch('https://backend.saweria.co/transactions?page=1&page_size=20', {
+    headers: {
+      Authorization: token,
+      Referer: 'https://saweria.co/',
+      Origin: 'https://saweria.co',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    console.error('cek transaksi Saweria gagal:', res.status);
+    return false;
+  }
+
+  const body = await res.json();
+  const marker = `ord:${orderId.slice(0, 8)}`;
+  const found = (body?.data?.transactions ?? []).find(
+    (t: any) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.includes(marker)
+  );
+  return !!found;
+}
