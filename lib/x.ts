@@ -19,6 +19,12 @@ function baseUrl() {
   return url.replace(/\/$/, '');
 }
 
+function backendSecret() {
+  const secret = process.env.X_BACKEND_SECRET;
+  if (!secret) throw new Error('X_BACKEND_SECRET belum di-set');
+  return secret;
+}
+
 // Ambil id tweet dari string hasil twikit, mis: <Tweet id="2105180848622629091">
 function extractTweetId(resultStr: string): string | null {
   const m = resultStr.match(/id="(\d+)"/);
@@ -34,15 +40,15 @@ export async function postToX(content: string, imageUrls: string[]): Promise<Pos
     // Tanpa gambar: endpoint /post, JSON biasa.
     res = await fetch(`${baseUrl()}/post`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Secret': backendSecret() },
       cache: 'no-store',
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({ text: content }),
     });
   } else {
     // Dengan gambar: endpoint /post-with-image, multipart/form-data.
-    // Backend Flask cuma menerima SATU file per field "image", jadi untuk
-    // beberapa gambar, kirim gambar pertama saja (batasan backend saat ini).
+    // Backend Flask cuma menerima SATU file per field "image" (MAX_IMAGES = 1
+    // di lib/constants.ts sudah membatasi ini sejak sisi user mengunggah).
     const imgRes = await fetch(imageUrls[0]);
     if (!imgRes.ok) throw new Error(`Gagal mengunduh gambar: ${imageUrls[0]}`);
     const blob = await imgRes.blob();
@@ -53,6 +59,7 @@ export async function postToX(content: string, imageUrls: string[]): Promise<Pos
 
     res = await fetch(`${baseUrl()}/post-with-image`, {
       method: 'POST',
+      headers: { 'X-Secret': backendSecret() },
       cache: 'no-store',
       signal: AbortSignal.timeout(30_000),
       body: form,
