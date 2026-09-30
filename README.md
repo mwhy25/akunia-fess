@@ -87,24 +87,37 @@ npm run dev
 Ubah di satu tempat: `PACKAGES` di `lib/constants.ts`.
 
 ## Auto-post ke X (TIDAK RESMI — risiko akun dibekukan)
-Menfess tayang otomatis ke X begitu user kirim, TANPA moderasi. Ini memakai
-`agent-twitter-client`, library yang meniru sesi browser lewat cookie
-(`auth_token` + `ct0`), BUKAN API resmi X.
+Menfess tayang otomatis ke X begitu user kirim, TANPA moderasi. Postingnya
+dilakukan lewat **backend Python terpisah** (Flask + `twikit`), dideploy
+sendiri (mis. di Render), dipanggil lewat HTTP dari `lib/x.ts`.
 
 **Risiko yang disadari dan diterima:**
 - Melanggar Terms of Service X. Akun bisa dibekukan permanen tanpa jalur banding.
-- `X_AUTH_TOKEN` setara password akun X — kalau bocor, akun bisa diambil alih.
+- Cookie `auth_token`/`ct0` yang dipakai backend itu setara password akun X.
 - Cookie ini bisa kadaluarsa/dicabut X kapan saja tanpa pemberitahuan.
 
-**Cara ambil cookie:**
-1. Login ke x.com di browser (akun yang akan dipakai untuk posting menfess).
-2. Buka DevTools (F12) → Application/Storage → Cookies → `https://x.com`.
-3. Salin nilai cookie `auth_token` dan `ct0`, isi ke env `X_AUTH_TOKEN` dan `X_CT0`.
+**Setup:**
+1. Backend Python (`server.py`, Flask + twikit) di-deploy terpisah, tidak di
+   repo ini. Env `X_AUTH_TOKEN` dan `X_CT0` (cookie sesi X) ada DI BACKEND
+   ITU, bukan di project Next.js ini.
+2. Di project ini (Netlify), isi env:
+   ```
+   X_BACKEND_URL=https://nama-backend.onrender.com
+   ```
+3. `lib/x.ts` memanggil `${X_BACKEND_URL}/post` (tanpa gambar) atau
+   `${X_BACKEND_URL}/post-with-image` (dengan gambar, multipart/form-data,
+   backend saat ini hanya menerima satu gambar per tweet).
 
-**Kalau auto-post gagal** (cookie kadaluarsa, dll): post TETAP tersimpan
-berstatus `queued`, kredit user TIDAK hilang. Admin bisa:
-- klik **"Coba posting ulang ke X"** di `/admin/posts` (setelah cookie diperbarui), atau
-- klik **"Tolak"** untuk mengembalikan kredit user kalau memang tidak mau ditayangkan.
+**Kalau auto-post gagal** (cookie kadaluarsa, backend down, dll): post TETAP
+tersimpan berstatus `queued`, kredit user TIDAK hilang. Admin bisa:
+- klik **"Coba posting ulang ke X"** di `/admin/posts` (setelah backend/cookie
+  diperbaiki), atau
+- klik **"Tolak"** untuk mengembalikan kredit user.
+
+**Catatan keamanan:** backend Render itu sebaiknya membatasi siapa yang boleh
+memanggilnya (mis. cek header secret), supaya orang lain tidak bisa
+menyalahgunakan akun X lu lewat endpoint publiknya. Kalau backend saat ini
+belum ada pengaman itu, pertimbangkan menambahkannya.
 
 ## Catatan
 - Auto-post ke X aktif tanpa moderasi (lihat bagian di atas).
