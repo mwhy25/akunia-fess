@@ -1,23 +1,30 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { StatusBadge } from '@/components/post/StatusBadge';
-import { ModeratePostButtons } from '@/components/layout/AdminActions';
+import { RetryXButton, ModeratePostButtons } from '@/components/layout/AdminActions';
 import { timeAgo } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
+// Auto-post ke X jalan otomatis begitu user kirim (tanpa moderasi dulu).
+// Post yang statusnya 'queued' di sini artinya AUTO-POST GAGAL (bukan
+// "menunggu disetujui") — kredit user sudah terpotong, tinggal coba tayangkan
+// ulang atau tolak (kredit dikembalikan).
 export default async function AdminPosts() {
   const { data: posts } = await supabaseAdmin
     .from('posts')
-    .select('id, content, image_urls, status, reject_reason, created_at')
+    .select('id, content, image_urls, status, reject_reason, tweet_url, created_at')
     .in('status', ['queued', 'rejected', 'published'])
     .order('status', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(60);
 
-  // Catatan privasi: admin tidak diberi user_id/username di sini agar tetap anonim saat moderasi.
   return (
     <div className="space-y-5">
-      <h1 className="display text-5xl">Moderasi</h1>
+      <h1 className="display text-5xl">Post</h1>
+      <p className="text-sm text-mute">
+        Menfess tayang otomatis ke X begitu dikirim. Status <b>queued</b> di
+        sini berarti auto-post gagal — kredit user sudah terpotong.
+      </p>
       <ul className="space-y-3">
         {posts?.map((p) => (
           <li key={p.id} className="border-[3px] border-line bg-panel p-4">
@@ -35,10 +42,18 @@ export default async function AdminPosts() {
               </div>
             )}
             {p.status === 'rejected' && <p className="text-sm text-mute">Alasan: {p.reject_reason}</p>}
-            {p.status === 'queued' && <ModeratePostButtons postId={p.id} />}
+            {p.status === 'published' && p.tweet_url && (
+              <a href={p.tweet_url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-acid underline underline-offset-4">Lihat di X</a>
+            )}
+            {p.status === 'queued' && (
+              <div className="space-y-2">
+                <RetryXButton postId={p.id} />
+                <ModeratePostButtons postId={p.id} />
+              </div>
+            )}
           </li>
         ))}
-        {!posts?.length && <p className="text-mute">Antrean kosong.</p>}
+        {!posts?.length && <p className="text-mute">Tidak ada post yang perlu ditangani.</p>}
       </ul>
     </div>
   );

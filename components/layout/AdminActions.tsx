@@ -82,6 +82,39 @@ export function CheckSaweriaButton({ orderId }: { orderId: string }) {
   );
 }
 
+export function RetryXButton({ postId }: { postId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState('');
+
+  async function retry() {
+    setLoading(true);
+    setError('');
+    setOk('');
+    const res = await fetch('/api/admin/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'retry_x', postId }),
+    });
+    const j = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) return setError(j.error || 'Gagal');
+    setOk(`Berhasil tayang: ${j.tweetUrl}`);
+    router.refresh();
+  }
+
+  return (
+    <div>
+      <button onClick={retry} disabled={loading} className="btn btn-sm">
+        {loading ? 'Memposting ke X...' : 'Coba posting ulang ke X'}
+      </button>
+      {error && <p className="err">{error}</p>}
+      {ok && <p className="ok break-all">{ok}</p>}
+    </div>
+  );
+}
+
 export function ModeratePostButtons({ postId }: { postId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);

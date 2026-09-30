@@ -4,6 +4,7 @@ import { getUser } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { MAX_IMAGES, MAX_TWEET_CHARS, POST_IMAGE_BUCKET } from '@/lib/constants';
 import { tweetLength } from '@/lib/utils';
+import { postToX } from '@/lib/x';
 
 const schema = z.object({
   content: z.string().trim().min(1, 'Isi pesan dulu').max(1000),
@@ -31,7 +32,8 @@ export async function POST(req: Request) {
   const okImages = images.every((u) => u.startsWith(base) && new URL(u).pathname.startsWith(prefix));
   if (!okImages) return NextResponse.json({ error: 'Gambar tidak valid' }, { status: 400 });
 
-  const { data, error } = await supabaseAdmin.rpc('create_post_with_credit', {
+  // Potong kredit + simpan post sebagai 'queued' (atomic, lewat RPC).
+  const { data: postId, error } = await supabaseAdmin.rpc('create_post_with_credit', {
     p_user: user.id,
     p_content: content,
     p_images: images,
@@ -44,5 +46,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Gagal mengirim' }, { status: 500 });
   }
 
-  return NextResponse.json({ id: data });
+  // Kredit sudah terpotong dan post sudah tersimpan. Sekarang coba post ke X.
+  // Kalau gagal, JANGAN batalkan/refund otomatis di sini — post tetap 'queued'
+  // supaya admin bisa retry manual dari /admin/posts (X kadang error sesaat,
+  // bukan berarti kontennya harus ditolak).
+  try {
+    const { tweetUrl } = await postToX(content, images);
+    await supabaseAdmin
+      .from('posts')
+      .update({ status: 'published', published_at: new Date().toISOString(), tweet_url: tweetUrl })
+      .eq('id', postId)
+      .eq('status', 'queued');
+  } catch (e: any) {
+    console.error('Auto-post ke X gagal:', e.message);
+    // Post tetap 'queued'. Tidak melempar error ke user — kredit mereka valid,
+    // menfess mereka tercatat, cuma belum tayang. Admin akan lihat di /admin/posts.
+  }
+
+  return NextResponse.json({ id: postId });
 }

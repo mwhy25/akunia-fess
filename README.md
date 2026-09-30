@@ -86,6 +86,25 @@ npm run dev
 ## Harga paket
 Ubah di satu tempat: `PACKAGES` di `lib/constants.ts`.
 
+## Auto-post ke X (TIDAK RESMI — risiko akun dibekukan)
+Menfess tayang otomatis ke X begitu user kirim, TANPA moderasi. Ini memakai
+`agent-twitter-client`, library yang meniru sesi browser lewat cookie
+(`auth_token` + `ct0`), BUKAN API resmi X.
+
+**Risiko yang disadari dan diterima:**
+- Melanggar Terms of Service X. Akun bisa dibekukan permanen tanpa jalur banding.
+- `X_AUTH_TOKEN` setara password akun X — kalau bocor, akun bisa diambil alih.
+- Cookie ini bisa kadaluarsa/dicabut X kapan saja tanpa pemberitahuan.
+
+**Cara ambil cookie:**
+1. Login ke x.com di browser (akun yang akan dipakai untuk posting menfess).
+2. Buka DevTools (F12) → Application/Storage → Cookies → `https://x.com`.
+3. Salin nilai cookie `auth_token` dan `ct0`, isi ke env `X_AUTH_TOKEN` dan `X_CT0`.
+
+**Kalau auto-post gagal** (cookie kadaluarsa, dll): post TETAP tersimpan
+berstatus `queued`, kredit user TIDAK hilang. Admin bisa:
+- klik **"Coba posting ulang ke X"** di `/admin/posts` (setelah cookie diperbarui), atau
+- klik **"Tolak"** untuk mengembalikan kredit user kalau memang tidak mau ditayangkan.
+
 ## Catatan
-- Posting ke X **belum otomatis**: post masuk antrean, admin posting manual
-  lalu tekan "Tandai tayang" di `/admin/posts`.
+- Auto-post ke X aktif tanpa moderasi (lihat bagian di atas).
