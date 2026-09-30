@@ -1,5 +1,5 @@
 export const MAX_TWEET_CHARS = 280;
-export const MAX_IMAGES = 4;
+export const MAX_IMAGES = 1;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export const POST_IMAGE_BUCKET = process.env.NEXT_PUBLIC_POST_IMAGE_BUCKET || 'post-images';
