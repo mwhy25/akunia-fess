@@ -26,3 +26,13 @@ export const PACKAGES: CreditPackage[] = [
 export const getPackage = (id: string) => PACKAGES.find((p) => p.id === id);
 export const ORDER_EXPIRY_MINUTES = 15;
 export const MAX_PENDING_ORDERS = 3;
+
+// Kredit awal akun baru (promo). Ubah via env INITIAL_CREDITS tanpa deploy kode.
+// Fallback 5 agar promo jalan walau env belum di-set.
+export const INITIAL_CREDITS = (() => {
+  const raw = process.env.INITIAL_CREDITS;
+  if (raw == null || raw.trim() === '') return 5;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > 100) return 5;
+  return n;
+})();

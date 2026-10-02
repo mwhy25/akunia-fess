@@ -9,6 +9,7 @@ export function AdminNav() {
           <Link href="/admin" className="flex min-h-[44px] items-center px-2">Ringkasan</Link>
           <Link href="/admin/posts" className="flex min-h-[44px] items-center px-2">Post</Link>
           <Link href="/admin/orders" className="flex min-h-[44px] items-center px-2">Order</Link>
+          <Link href="/admin/credits" className="flex min-h-[44px] items-center px-2">Kredit</Link>
           <Link href="/dashboard" className="flex min-h-[44px] items-center px-2 text-mute">Keluar</Link>
         </nav>
       </div>
