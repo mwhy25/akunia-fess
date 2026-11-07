@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { hashSecret, verifySecret, generateRecoveryCode, normalizeRecovery, DUMMY_HASH } from '@/lib/security/password';
 import { createSession, destroyAllSessions } from '@/lib/security/session';
-import { allow, clientIp } from '@/lib/security/ratelimit';
+import { allow, record, clientIp } from '@/lib/security/ratelimit';
 
 const schema = z.object({
   username: z.string().trim().min(1).max(20),
@@ -15,9 +15,13 @@ const GENERIC = 'Username atau kode pemulihan salah.';
 
 // Lupa password: username + kode pemulihan → password baru + kode pemulihan baru.
 export async function POST(req: Request) {
-  if (!(await allow('recover', clientIp()))) {
+  const ip = clientIp();
+  if (!(await allow('recover', ip))) {
     return NextResponse.json({ error: 'Terlalu banyak percobaan. Coba lagi nanti.' }, { status: 429 });
   }
+  // Hitung semua percobaan: kode pemulihan adalah tebakan, jadi yang gagal pun
+  // harus memakan kuota.
+  await record('recover', ip);
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

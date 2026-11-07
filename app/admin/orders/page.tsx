@@ -27,7 +27,9 @@ export default async function AdminOrders() {
             <p>{rupiah(o.amount)} → +{o.credits} kredit</p>
             <p className="mb-3 break-all text-xs text-mute">{o.id}</p>
             {o.provider === 'saweria' && <CheckSaweriaButton orderId={o.id} />}
-            {o.status === 'pending' && <VerifyOrderButton orderId={o.id} />}
+            {/* Order Saweria diverifikasi lewat "Cek ke Saweria" — jangan sediakan
+                tombol lunas manual, rawan salah klik dan memberi kredit gratis. */}
+            {o.status === 'pending' && o.provider !== 'saweria' && <VerifyOrderButton orderId={o.id} />}
           </li>
         ))}
         {!orders?.length && <p className="text-mute">Belum ada order.</p>}

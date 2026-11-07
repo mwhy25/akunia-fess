@@ -21,7 +21,7 @@ function Ring({ used }: { used: number }) {
   const pct = Math.min(used / MAX_TWEET_CHARS, 1);
   const color = left < 0 ? '#e10a1f' : left <= 20 ? '#ffe600' : '#f4efe9';
   return (
-    <div className="flex items-center gap-2" aria-live="polite">
+    <div className="flex items-center gap-2" aria-hidden>
       <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden>
         <circle cx="15" cy="15" r={r} fill="none" stroke="#2a1417" strokeWidth="3" />
         <circle cx="15" cy="15" r={r} fill="none" stroke={color} strokeWidth="3" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 15 15)" />
@@ -40,12 +40,22 @@ export function PostForm({ credits }: { credits: number }) {
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  // Idempotency: satu percobaan kirim = satu requestId. Kalau request putus
+  // di tengah jalan (mis. function timeout) lalu user menekan kirim lagi,
+  // server mengenali id yang sama dan tidak memotong kredit dua kali.
+  const reqIdRef = useRef<string | null>(null);
+  const sendingRef = useRef(false);
 
   const used = tweetLength(text);
   const over = used > MAX_TWEET_CHARS;
   const busy = images.some((i) => i.uploading);
   const ready = images.filter((i) => i.url);
   const canSend = !!text.trim() && !over && !busy && !loading && credits > 0;
+
+  // Isi draft berubah → ini percobaan baru, bukan retry.
+  useEffect(() => {
+    reqIdRef.current = null;
+  }, [text, images]);
 
   // Tinggi textarea mengikuti isi.
   useEffect(() => {
@@ -98,25 +108,30 @@ export function PostForm({ credits }: { credits: number }) {
   }
 
   async function submit() {
-    if (!canSend) return;
+    if (!canSend || sendingRef.current) return;
+    sendingRef.current = true;
     setLoading(true);
     setError('');
+    const requestId = reqIdRef.current ?? crypto.randomUUID();
+    reqIdRef.current = requestId;
     try {
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text.trim(), images: ready.map((i) => i.url) }),
+        body: JSON.stringify({ content: text.trim(), images: ready.map((i) => i.url), requestId }),
       });
-      const j = await res.json();
+      const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (j.code === 'NO_CREDITS') return router.push('/credits');
         throw new Error(j.error || 'Gagal mengirim');
       }
+      reqIdRef.current = null;
       setDone(true);
       router.refresh();
     } catch (e: any) {
       setError(e.message);
     } finally {
+      sendingRef.current = false;
       setLoading(false);
     }
   }

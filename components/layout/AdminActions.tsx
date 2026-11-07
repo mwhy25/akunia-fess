@@ -12,7 +12,7 @@ export function VerifyOrderButton({ orderId }: { orderId: string }) {
     setLoading(true); setError('');
     const res = await fetch('/api/admin/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId }) });
     setLoading(false);
-    if (!res.ok) return setError((await res.json()).error || 'Gagal');
+    if (!res.ok) return setError(((await res.json().catch(() => ({}))) as any).error || 'Gagal');
     router.refresh();
   }
 
@@ -67,7 +67,7 @@ export function CheckSaweriaButton({ orderId }: { orderId: string }) {
                     {result.debug.transaksiTerbaru.map((t: any, i: number) => (
                       <p key={i} className="break-all border-t border-line pt-1 font-mono">
                         [{t.status}] Rp{t.amount} · {t.created_at}<br />
-                        message: "{t.message}"
+                        message: &quot;{t.message}&quot;
                         {t.message?.trim() === result.debug.orderIdDicari?.trim() && <span className="text-acid"> ← COCOK</span>}
                       </p>
                     ))}
@@ -124,7 +124,7 @@ export function ModeratePostButtons({ postId }: { postId: string }) {
     setLoading(true); setError('');
     const res = await fetch('/api/admin/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setLoading(false);
-    if (!res.ok) return setError((await res.json()).error || 'Gagal');
+    if (!res.ok) return setError(((await res.json().catch(() => ({}))) as any).error || 'Gagal');
     router.refresh();
   }
 

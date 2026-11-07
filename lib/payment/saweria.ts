@@ -84,45 +84,62 @@ export async function checkSaweriaPaidDebug(orderId: string): Promise<SaweriaChe
     return { ok: false, paid: false, tokenSet: false, orderIdDicari: orderId, error: 'SAWERIA_TOKEN belum di-set di environment variables.' };
   }
 
-  let res: Response;
-  try {
-    res = await fetch('https://backend.saweria.co/transactions?page=1&page_size=20', {
-      headers: {
-        Authorization: token,
-        Referer: 'https://saweria.co/',
-        Origin: 'https://saweria.co',
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch (e: any) {
-    return { ok: false, paid: false, tokenSet, orderIdDicari: orderId, error: `fetch gagal: ${e.message}` };
+  // Saweria bisa punya lebih dari 20 transaksi sejak order dibuat, jadi
+  // halaman pertama saja tidak cukup (pembayaran sah bisa tidak ketemu).
+  const PAGE_SIZE = 50;
+  const MAX_PAGES = 5;
+  const transactions: any[] = [];
+  let lastStatus: number | undefined;
+
+  const matches = (t: any) =>
+    t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.trim() === orderId.trim();
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    let res: Response;
+    try {
+      res = await fetch(`https://backend.saweria.co/transactions?page=${page}&page_size=${PAGE_SIZE}`, {
+        headers: {
+          Authorization: token,
+          Referer: 'https://saweria.co/',
+          Origin: 'https://saweria.co',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (e: any) {
+      return { ok: false, paid: false, tokenSet, orderIdDicari: orderId, error: `fetch gagal: ${e.message}` };
+    }
+
+    lastStatus = res.status;
+
+    if (res.status === 401) {
+      return { ok: false, paid: false, httpStatus: 401, tokenSet, orderIdDicari: orderId, error: 'Token ditolak Saweria (401) — kemungkinan sudah kadaluarsa, login ulang di saweria.co.' };
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, paid: false, httpStatus: res.status, tokenSet, orderIdDicari: orderId, error: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
+
+    let body: any;
+    try {
+      body = await res.json();
+    } catch {
+      return { ok: false, paid: false, httpStatus: res.status, tokenSet, orderIdDicari: orderId, error: 'Respons bukan JSON yang valid.' };
+    }
+
+    const batch: any[] = body?.data?.transactions ?? [];
+    transactions.push(...batch);
+
+    // Halaman terakhir, atau sudah ketemu di halaman ini.
+    if (batch.length < PAGE_SIZE || batch.some(matches)) break;
   }
 
-  if (res.status === 401) {
-    return { ok: false, paid: false, httpStatus: 401, tokenSet, orderIdDicari: orderId, error: 'Token ditolak Saweria (401) — kemungkinan sudah kadaluarsa, login ulang di saweria.co.' };
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    return { ok: false, paid: false, httpStatus: res.status, tokenSet, orderIdDicari: orderId, error: `HTTP ${res.status}: ${text.slice(0, 200)}` };
-  }
-
-  let body: any;
-  try {
-    body = await res.json();
-  } catch {
-    return { ok: false, paid: false, httpStatus: res.status, tokenSet, orderIdDicari: orderId, error: 'Respons bukan JSON yang valid.' };
-  }
-
-  const transactions: any[] = body?.data?.transactions ?? [];
-  const found = transactions.find(
-    (t) => t.status === 'SUCCESS' && typeof t.message === 'string' && t.message.trim() === orderId.trim()
-  );
+  const found = transactions.find(matches);
 
   return {
     ok: true,
     paid: !!found,
-    httpStatus: res.status,
+    httpStatus: lastStatus,
     tokenSet,
     orderIdDicari: orderId,
     jumlahTransaksi: transactions.length,

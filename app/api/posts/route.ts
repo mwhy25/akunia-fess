@@ -9,6 +9,9 @@ import { postToX } from '@/lib/x';
 const schema = z.object({
   content: z.string().trim().min(1, 'Isi pesan dulu').max(1000),
   images: z.array(z.string().url()).max(MAX_IMAGES).default([]),
+  // Dikirim client sekali per percobaan kirim. Mencegah dobel potong kredit
+  // kalau user menekan tombol dua kali / browser retry request.
+  requestId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -20,7 +23,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Data tidak valid' }, { status: 400 });
   }
-  const { content, images } = parsed.data;
+  const { content, images, requestId } = parsed.data;
 
   if (tweetLength(content) > MAX_TWEET_CHARS) {
     return NextResponse.json({ error: `Maksimal ${MAX_TWEET_CHARS} karakter` }, { status: 400 });
@@ -28,8 +31,23 @@ export async function POST(req: Request) {
 
   // Gambar hanya boleh dari bucket kita dan folder milik user ini.
   const prefix = `/storage/v1/object/public/${POST_IMAGE_BUCKET}/${user.id}/`;
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const okImages = images.every((u) => u.startsWith(base) && new URL(u).pathname.startsWith(prefix));
+  const baseOrigin = (() => {
+    try {
+      return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).origin;
+    } catch {
+      return null;
+    }
+  })();
+  const okImages =
+    !!baseOrigin &&
+    images.every((u) => {
+      try {
+        const url = new URL(u);
+        return url.origin === baseOrigin && url.pathname.startsWith(prefix);
+      } catch {
+        return false;
+      }
+    });
   if (!okImages) return NextResponse.json({ error: 'Gambar tidak valid' }, { status: 400 });
 
   // Potong kredit + simpan post sebagai 'queued' (atomic, lewat RPC).
@@ -37,7 +55,8 @@ export async function POST(req: Request) {
     p_user: user.id,
     p_content: content,
     p_images: images,
-  });
+    p_request_id: requestId ?? null,
+  } as any);
 
   if (error) {
     if (error.message.includes('INSUFFICIENT_CREDITS_OR_BANNED')) {

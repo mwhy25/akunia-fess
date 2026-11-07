@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { PasswordForm } from '@/components/auth/PasswordForm';
+import { RecoveryCodeForm } from '@/components/auth/RecoveryCodeForm';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 
 export default async function ProfilePage() {
@@ -21,6 +22,7 @@ export default async function ProfilePage() {
       </dl>
 
       <PasswordForm />
+      <RecoveryCodeForm />
 
       {user.role === 'admin' && <Link href="/admin" className="btn btn-ghost">Buka panel admin</Link>}
       <LogoutButton />

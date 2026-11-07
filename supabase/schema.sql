@@ -46,7 +46,8 @@ create table if not exists orders (
   provider text not null,
   provider_ref text unique,
   package_id text not null,
-  amount int not null check (amount > 0),
+  -- amount >= 0: promo akun baru & topup admin memakai nominal Rp0.
+  amount int not null check (amount >= 0),
   total_paid int,
   credits int not null check (credits > 0),
   qr_string text,
@@ -67,7 +68,9 @@ create index if not exists orders_status_created on orders (status, created_at d
 create table if not exists posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
-  content text not null check (char_length(content) between 1 and 280),
+  -- Batas 280 "berbobot" (URL = 23 karakter) dicek di API (tweetLength).
+  -- Di DB cukup batas keras, supaya URL panjang tidak ditolak.
+  content text not null check (char_length(content) between 1 and 1000),
   image_urls text[] not null default '{}' check (array_length(image_urls, 1) is null or array_length(image_urls, 1) <= 4),
   status text not null default 'queued'
     check (status in ('queued', 'published', 'rejected', 'deleted')),

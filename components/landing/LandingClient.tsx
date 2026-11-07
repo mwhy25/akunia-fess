@@ -9,10 +9,10 @@ type Mode = 'login' | 'register' | 'forgot';
 
 const FAQ = [
   ['Beneran anonim?', 'Akun Twitter kami yang posting. Nama dan email lu tidak pernah ditampilkan ke publik.'],
-  ['Berapa lama sampai tayang?', 'Pesan masuk antrean dan diposting setelah dicek. Status bisa lu pantau di halaman Riwayat.'],
+  ['Berapa lama sampai tayang?', 'Begitu dikirim, pesan langsung diposting otomatis ke X. Status bisa lu pantau di halaman Riwayat.'],
   ['Kalau pesan gue ditolak?', 'Kredit dikembalikan otomatis, dan lu bisa kirim ulang versi yang sudah diperbaiki.'],
   ['Bayarnya pakai apa?', 'QRIS, jadi bisa lewat e-wallet atau m-banking apa pun.'],
-  ['Bisa kirim gambar?', 'Bisa, sampai 4 gambar per menfess. Video belum didukung.'],
+  ['Bisa kirim gambar?', 'Bisa, satu gambar per menfess (maksimal 5 MB). Video belum didukung.'],
   ['Batas panjang pesan?', '280 karakter, sama seperti batas tweet di X.'],
 ];
 

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifySecret, DUMMY_HASH } from '@/lib/security/password';
 import { createSession } from '@/lib/security/session';
-import { allow, clientIp } from '@/lib/security/ratelimit';
+import { allow, record, clientIp } from '@/lib/security/ratelimit';
 
 const schema = z.object({ username: z.string().trim().min(1).max(20), password: z.string().min(1).max(128) });
 
@@ -12,7 +12,8 @@ const LOCK_MIN = 15;
 const GENERIC = 'Username atau password salah.';
 
 export async function POST(req: Request) {
-  if (!(await allow('login', clientIp()))) {
+  const ip = clientIp();
+  if (!(await allow('login', ip))) {
     return NextResponse.json({ error: 'Terlalu banyak percobaan. Coba lagi nanti.' }, { status: 429 });
   }
 
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
   }
 
   if (!acc || !ok) {
+    await record('login', ip); // hanya percobaan GAGAL yang memakan kuota
     if (acc) {
       const fails = acc.failed_logins + 1;
       await supabaseAdmin

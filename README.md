@@ -10,6 +10,7 @@ Next.js 14 (App Router) + Supabase + Tailwind. Deploy penuh ke **Netlify**
 2. SQL Editor → jalankan **berurutan**:
    - `supabase/schema.sql`
    - `supabase/migration_own_auth.sql` (mengganti Supabase Auth dengan sistem akun sendiri, termasuk kolom email)
+   - `supabase/migration_2025_fixes.sql` (perbaikan: order Rp0, batas panjang post, idempotensi kirim, RPC `add_credits`, throttle cek Saweria)
 3. Project Settings → API: catat **Project URL** dan **service_role key**.
 
 > Auth dikelola sendiri (tabel `accounts`): username + password + kode
@@ -35,9 +36,18 @@ Pastikan `.env.local` tidak ikut (sudah ada di `.gitignore`).
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key Supabase |
+| `NEXT_PUBLIC_SITE_URL` | URL publik situs, mis. `https://menfess-lu.com` |
 | `NEXT_PUBLIC_POST_IMAGE_BUCKET` | `post-images` |
-| `PAYMENT_PROVIDER` | `saweria` |
+| `INITIAL_CREDITS` | kredit bonus akun baru (default `5`, `0` = mati) |
+| `PAYMENT_PROVIDER` | `saweria` atau `manual` |
 | `SAWERIA_USER_ID` | UUID akun Saweria (lihat catatan di bawah) |
+| `SAWERIA_TOKEN` | token sesi saweria.co (untuk cek status otomatis) |
+| `NEXT_PUBLIC_QRIS_STATIC_IMAGE` | (khusus `manual`) URL gambar QRIS statis |
+| `X_BACKEND_URL` | URL backend Flask/twikit |
+| `X_BACKEND_SECRET` | secret header `X-Secret` (WAJIB, harus sama dengan backend) |
+| `CRON_SECRET` | secret untuk `/api/cron/cleanup` |
+
+> Daftar lengkap ada di `.env.example`.
 
 4. Deploy.
 
@@ -56,10 +66,12 @@ seperti yang dipakai di `backend.saweria.co/donations/snap/<UUID>`.
 
 - Data donasi (nama, email, pesan) otomatis terisi dari akun user yang beli
   kredit — lihat `lib/payment/saweria.ts`.
-- Saat ini yang otomatis **hanya membuat QR**. Konfirmasi bayar dilakukan
-  admin: buka `/admin/orders`, cocokkan dengan mutasi di dashboard Saweria,
-  lalu klik **Verifikasi lunas**.
-- Belum ada cek status otomatis karena endpoint-nya belum diketahui.
+- QR dibuat otomatis. Status pembayaran dicek otomatis saat halaman checkout
+  terbuka (maksimal sekali per 20 detik per order, supaya tidak kena rate limit).
+- Kalau user menutup tab sebelum kredit masuk, buka `/admin/orders` lalu klik
+  **Cek ke Saweria** untuk memverifikasi manual.
+- Auto-check memakai `SAWERIA_TOKEN` (token sesi saweria.co). Kalau token
+  kadaluarsa, endpoint akan melaporkan 401 — login ulang lalu ganti nilainya.
 - Ini memakai endpoint internal Saweria (bukan API resmi): sebelumnya
   terbukti diblokir dari IP Vercel, dan berhasil dari IP Netlify. Ini bisa
   berubah kapan saja tanpa pemberitahuan dari pihak Saweria.
@@ -71,14 +83,36 @@ cp .env.example .env.local   # isi
 npm run dev
 ```
 
+Cek sebelum push:
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
+
+## Maintenance (cron)
+`/api/cron/cleanup` menghapus sesi kedaluwarsa, catatan percobaan login lama,
+dan menandai order pending yang sudah lewat waktu. Panggil berkala (mis. tiap
+jam) dengan header:
+
+```
+Authorization: Bearer $CRON_SECRET
+```
+
+Contoh: Netlify Scheduled Function, GitHub Actions `schedule`, atau cron-job.org.
+Tanpa cron, tabel `sessions` / `auth_attempts` akan tumbuh terus.
+
 ## Keamanan akun (buatan sendiri)
 - Password di-hash **scrypt** (salt acak per akun). Sesi = token acak
   256-bit di cookie `httpOnly`; database hanya menyimpan hash-nya.
-- Login dibatasi per IP (10x/15 menit); akun dikunci 15 menit setelah 5 kali
-  salah berturut-turut.
+- Login dibatasi per IP (10 percobaan **gagal**/15 menit); akun dikunci 15
+  menit setelah 5 kali salah berturut-turut. Login yang berhasil tidak
+  memakan kuota. Username seperti `admin`/`support` tidak bisa didaftarkan.
 - Lupa password memakai **kode pemulihan** (ditampilkan sekali saat daftar).
   Kode hangus setelah dipakai dan diganti yang baru. Kalau password DAN
   kode hilang, akun tidak bisa dipulihkan.
+- Kode pemulihan bisa dibuat ulang kapan saja di `/profile` (wajib isi
+  password saat ini); kode lama langsung hangus.
 - Ganti password / reset otomatis mengeluarkan semua perangkat lain.
 - Semua akses data lewat server (service role) dengan filter `user_id`; RLS
   tanpa policy menutup akses langsung dari luar.

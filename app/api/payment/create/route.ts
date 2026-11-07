@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       orderId: order.id,
       userId: user.id,
       username: user.username,
-      email: user.email!,
+      email: user.email ?? 'no-reply@menfess.local',
       amount: pkg.amount,
       description: `${pkg.credits} kredit menfess`,
       expiresInMinutes: ORDER_EXPIRY_MINUTES,

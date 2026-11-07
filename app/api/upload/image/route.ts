@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, POST_IMAGE_BUCKET } from '@/lib/constants';
+import { allow, record } from '@/lib/security/ratelimit';
 
 const EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -24,6 +25,12 @@ export async function POST(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Belum login' }, { status: 401 });
   if (user.is_banned) return NextResponse.json({ error: 'Akun diblokir' }, { status: 403 });
+
+  // Batasi unggahan per akun (bukan per IP) supaya storage tidak bisa dibanjiri.
+  if (!(await allow('upload', user.id))) {
+    return NextResponse.json({ error: 'Terlalu banyak unggahan. Coba lagi nanti.' }, { status: 429 });
+  }
+  await record('upload', user.id);
 
   const form = await req.formData().catch(() => null);
   const file = form?.get('file');

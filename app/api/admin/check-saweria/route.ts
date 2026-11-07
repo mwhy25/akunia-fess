@@ -44,9 +44,9 @@ export async function POST(req: Request) {
     });
   }
 
-  // Sudah SUCCESS di Saweria. Kalau di DB masih pending/expired, luluskan sekarang.
+  // Sudah SUCCESS di Saweria. Kalau di DB masih pending/expired, luluskan
+  // sekarang — fulfill_order menangani status pending maupun expired.
   if (order.status !== 'paid') {
-    await supabaseAdmin.from('orders').update({ status: 'pending' }).eq('id', order.id).neq('status', 'paid');
     const { error } = await supabaseAdmin.rpc('fulfill_order', { p_order: order.id, p_amount_paid: null });
     if (error) {
       return NextResponse.json({ ok: false, paid: true, message: `Ditemukan SUCCESS tapi gagal fulfill: ${error.message}`, debug }, { status: 500 });
