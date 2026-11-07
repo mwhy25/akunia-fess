@@ -11,6 +11,7 @@ Next.js 14 (App Router) + Supabase + Tailwind. Deploy penuh ke **Netlify**
    - `supabase/schema.sql`
    - `supabase/migration_own_auth.sql` (mengganti Supabase Auth dengan sistem akun sendiri, termasuk kolom email)
    - `supabase/migration_2025_fixes.sql` (perbaikan: order Rp0, batas panjang post, idempotensi kirim, RPC `add_credits`, throttle cek Saweria)
+   - `supabase/scheduler.sql` (fitur scheduler admin tanpa kredit: tabel `scheduled_posts` + `scheduler_logs` + RPC `claim_next_due`/`record_scheduled_result`)
 3. Project Settings → API: catat **Project URL** dan **service_role key**.
 
 > Auth dikelola sendiri (tabel `accounts`): username + password + kode
@@ -99,8 +100,44 @@ jam) dengan header:
 Authorization: Bearer $CRON_SECRET
 ```
 
+`/api/cron/scheduler` menjalankan antrian scheduler admin yang sudah jatuh
+tempo (baca bagian "Scheduler admin" di bawah). Panggil lebih sering, mis.
+tiap **5 menit**, supaya jadwal posting akurat.
+
 Contoh: Netlify Scheduled Function, GitHub Actions `schedule`, atau cron-job.org.
 Tanpa cron, tabel `sessions` / `auth_attempts` akan tumbuh terus.
+
+## Scheduler admin (tanpa kredit)
+Fitur internal untuk **admin sendiri**: impor antrian post dari
+`index.xlsx` (hasil xscrape) lalu posting terjadwal ke X lewat backend
+Flask/twikit. **TIDAK memotong kredit user** — tidak lewat RPC
+`create_post_with_credit`, tidak menulis ke tabel `posts`, tidak ada order
+pembayaran. Semua akses lewat `requireAdmin()` + service_role.
+
+Halaman: **`/admin/scheduler`** (menu "Scheduler" di nav admin).
+
+1. **Impor**: upload `index.xlsx` → kolom yang dibaca `post_id`, `text`,
+   `photo_url`, `date`, `author`. Set jumlah per hari + window posting
+   (mis. `09:00–22:00`). Baris di-upsert ke tabel `scheduled_posts`
+   (dedup via `source_ref` = `post_id`).
+2. **Jadwal otomatis**: tiap baris dapat `scheduled_at` yang di-spread
+   merata di dalam window per hari.
+3. **Posting**: dua cara
+   - otomatis — cron `/api/cron/scheduler` tiap beberapa menit memanggil
+     RPC `claim_next_due` (atomic, `for update skip locked`) lalu
+     `postScheduledToX` (protokol sama dengan `schedule.py`: `/post`
+     teks, `/post-with-image` multipart). Hasil dicatat di
+     `record_scheduled_result`.
+   - manual — tombol **"Jalan due"** / **"Post sekarang"** di halaman
+     scheduler.
+4. **Gagal**: item yang gagal 3× berturut ditandai `failed`. Tombol
+   **"Retry failed"** mereset ke `pending`, **"Bersihkan"** menghapus
+   `failed` + `skipped`.
+5. Semua eksekusi tercatat di `scheduler_logs` (kolom `trigger` =
+   `cron` / `admin`).
+
+> Scheduler ini bersifat opsional. Kalau tidak mau dipakai, cukup abaikan
+> halamannya — tidak ada efek ke menfess publik.
 
 ## Keamanan akun (buatan sendiri)
 - Password di-hash **scrypt** (salt acak per akun). Sesi = token acak

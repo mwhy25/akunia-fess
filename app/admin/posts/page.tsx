@@ -10,13 +10,23 @@ export const dynamic = 'force-dynamic';
 // "menunggu disetujui") — kredit user sudah terpotong, tinggal coba tayangkan
 // ulang atau tolak (kredit dikembalikan).
 export default async function AdminPosts() {
+  // Prioritas penanganan: post yang MEMBUTUHKAN aksi (queued = auto-post
+  // gagal, rejected = menunggu keputusan) tampil DULU, newest-first dalam tiap
+  // kelompok. published terakhir. Tanpa limit supaya item actionable tidak
+  // ketutup oleh riwayat published yang banyak.
   const { data: posts } = await supabaseAdmin
     .from('posts')
     .select('id, content, image_urls, status, reject_reason, tweet_url, created_at')
     .in('status', ['queued', 'rejected', 'published'])
-    .order('status', { ascending: true })
-    .order('created_at', { ascending: false })
-    .limit(60);
+    .limit(200);
+
+  // Urutkan di memori: queued (terbaru dulu) -> rejected -> published.
+  const order: Record<string, number> = { queued: 0, rejected: 1, published: 2 };
+  posts?.sort((a, b) => {
+    const s = (order[a.status] ?? 99) - (order[b.status] ?? 99);
+    if (s !== 0) return s;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   return (
     <div className="space-y-5">

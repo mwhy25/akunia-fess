@@ -21,6 +21,7 @@ export default async function AdminHome() {
     ['Order menunggu', pending, '/admin/orders', pending > 0],
     ['Total user', users, null, false],
     ['Post tayang', published, null, false],
+    ['Scheduler', null, '/admin/scheduler', false],
   ] as const;
 
   return (
