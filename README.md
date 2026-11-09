@@ -120,20 +120,23 @@ Halaman: **`/admin/scheduler`** (menu "Scheduler" di nav admin).
    `photo_url`, `date`, `author`. Set jumlah per hari + window posting
    (mis. `09:00–22:00`). Baris di-upsert ke tabel `scheduled_posts`
    (dedup via `source_ref` = `post_id`).
-2. **Jadwal otomatis**: tiap baris dapat `scheduled_at` yang di-spread
+2. **Wajib foto**: setiap post harus punya `photo_url`. Baris tanpa foto
+   ditandai `skipped` dan **tidak diposting**. Kalau foto gagal diunduh,
+   bukan gambar, atau >5 MB (batas backend), item ditandai `failed` dan
+   **tidak** diposting sebagai teks doang. Hanya **satu** foto per tweet;
+   kalau sel berisi beberapa URL (` | `), diambil yang pertama.
+3. **Jadwal otomatis**: tiap baris dapat `scheduled_at` yang di-spread
    merata di dalam window per hari.
-3. **Posting**: dua cara
+4. **Posting**: dua cara
    - otomatis — cron `/api/cron/scheduler` tiap beberapa menit memanggil
      RPC `claim_next_due` (atomic, `for update skip locked`) lalu
-     `postScheduledToX` (protokol sama dengan `schedule.py`: `/post`
-     teks, `/post-with-image` multipart). Hasil dicatat di
-     `record_scheduled_result`.
+     `postScheduledToX` (`/post-with-image` multipart, protokol sama
+     dengan `schedule.py`). Hasil dicatat di `record_scheduled_result`.
    - manual — tombol **"Jalan due"** / **"Post sekarang"** di halaman
      scheduler.
-4. **Gagal**: item yang gagal 3× berturut ditandai `failed`. Tombol
-   **"Retry failed"** mereset ke `pending`, **"Bersihkan"** menghapus
-   `failed` + `skipped`.
-5. Semua eksekusi tercatat di `scheduler_logs` (kolom `trigger` =
+5. **Gagal**: item yang gagal ditandai `failed`. Tombol **"Retry failed"**
+   mereset ke `pending`, **"Bersihkan"** menghapus `failed` + `skipped`.
+6. Semua eksekusi tercatat di `scheduler_logs` (kolom `trigger` =
    `cron` / `admin`).
 
 > Scheduler ini bersifat opsional. Kalau tidak mau dipakai, cukup abaikan

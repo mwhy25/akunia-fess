@@ -3,17 +3,19 @@ import { runDueScheduledPosts } from '@/lib/scheduler';
 
 export const dynamic = 'force-dynamic';
 
-// Cron untuk scheduler admin. Panggil berkala (mis. tiap 5 menit) dari
-// Netlify scheduled function / cron-job.org dengan header:
-//   Authorization: Bearer <CRON_SECRET>
+// Cron untuk scheduler admin. Dipanggil oleh layanan eksternal (cron-job.org /
+// GitHub Actions) via POST dengan header:
+//   Authorization: Bearer <SCHEDULER_CRON_SECRET>
 //
-// Hanya memproses antrian yang "tanpa kredit" ini (tabel scheduled_posts),
-// jadi aman dipanggil terpisah dari cron cleanup. Tidak memotong kredit
-// user apa pun.
+// Dipisah dari /api/cron/cleanup yang memakai CRON_SECRET, supaya kunci
+// pembersih data bocor pun tidak bisa memicu antrian posting X.
+//
+// Hanya memproses antrian "tanpa kredit" (tabel scheduled_posts). Tidak
+// memotong kredit user apa pun.
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.SCHEDULER_CRON_SECRET || process.env.CRON_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: 'CRON_SECRET belum di-set' }, { status: 500 });
+    return NextResponse.json({ error: 'SCHEDULER_CRON_SECRET belum di-set' }, { status: 500 });
   }
   if (req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Dilarang' }, { status: 401 });

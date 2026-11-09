@@ -50,7 +50,7 @@ export function SchedulerClient() {
   const [winStart, setWinStart] = useState('09:00');
   const [winEnd, setWinEnd] = useState('22:00');
   const [order, setOrder] = useState<'oldest-first' | 'newest-first'>('oldest-first');
-  const [preview, setPreview] = useState<{ rows: any[]; sheet: string; count: number } | null>(null);
+  const [preview, setPreview] = useState<{ rows: any[]; sheet: string; count: number; noPhoto: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -92,10 +92,12 @@ export function SchedulerClient() {
           body.action === 'import'
             ? `Impor ${j.imported} post`
             : body.action === 'run'
-            ? `Jalan: ${j.posted} posted, ${j.failed} gagal`
+            ? `Jalan: ${j.posted} posted, ${j.failed} gagal, ${j.skipped ?? 0} skip`
             : body.action === 'post-now'
-            ? j.ok
+            ? j.kind === 'posted'
               ? `Tayang: ${j.tweetId}`
+              : j.kind === 'skipped'
+              ? `Di-skip: ${j.error}`
               : `Gagal: ${j.error}`
             : body.action === 'clear-failed'
             ? `Hapus ${j.removed} item failed/skipped`
@@ -126,7 +128,12 @@ export function SchedulerClient() {
         window: [winStart, winEnd],
         order,
       });
-      setPreview({ rows: out.rows, sheet: out.sheetName, count: out.items ?? 0 });
+      setPreview({
+        rows: out.rows,
+        sheet: out.sheetName,
+        count: out.items ?? 0,
+        noPhoto: out.rows.filter((r: any) => !r.photo_url).length,
+      });
     };
     reader.readAsArrayBuffer(file);
   }
@@ -232,6 +239,9 @@ export function SchedulerClient() {
             {preview && (
               <span className="text-sm text-mute">
                 Sheet <b>{preview.sheet}</b> · {preview.count} post siap dijadwalkan
+                {preview.noPhoto > 0 && (
+                  <span className="text-red"> · {preview.noPhoto} tanpa foto (akan di-skip)</span>
+                )}
               </span>
             )}
           </div>

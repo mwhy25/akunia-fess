@@ -109,18 +109,23 @@ export async function POST(req: Request) {
       if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 });
       if (!item) return NextResponse.json({ error: 'Item tidak ditemukan' }, { status: 404 });
 
-      // Post manual langsung (tanpa klaim: attempts naik via record saja).
+      // Post manual: aturan sama seperti cron (wajib foto, foto gagal = failed).
       const result = await postScheduledToX(String(item.text), item.photo_url);
 
       const { error } = await supabaseAdmin.rpc('record_scheduled_result', {
         p_id: item.id,
-        p_status: result.ok ? 'posted' : 'failed',
+        p_status: result.kind,
         p_tweet: result.tweetId ?? null,
         p_error: result.error ?? null,
       } as any);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      return NextResponse.json({ ok: result.ok, tweetId: result.tweetId, error: result.error });
+      return NextResponse.json({
+        ok: result.kind === 'posted',
+        kind: result.kind,
+        tweetId: result.tweetId ?? null,
+        error: result.error ?? null,
+      });
     }
 
     case 'skip': {

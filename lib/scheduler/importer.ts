@@ -37,7 +37,13 @@ export function xlsxToImportRows(
     if (!text) continue;
 
     const sourceRef = String(get('post_id') ?? get('source_id') ?? get('url') ?? '').trim() || null;
-    const photo = String(get('photo_url') ?? get('photo_urls') ?? get('photo') ?? '').trim() || null;
+    // Hanya SATU foto (backend menerima satu field "image"). Kalau sel berisi
+    // beberapa URL dipisah " | " (hasil --split-cols), ambil yang pertama.
+    const rawPhoto = String(
+      get('photo_url') ?? get('photo_urls_1') ?? get('photo_urls') ?? get('photo') ?? ''
+    ).trim();
+    const firstPhoto = rawPhoto.split('|')[0]?.trim() ?? '';
+    const photo = firstPhoto.startsWith('http') ? firstPhoto : null;
     const date = String(get('date') ?? get('created_at') ?? get('source_created_at') ?? '').trim();
     const author = String(get('author') ?? get('username') ?? '').trim();
 
